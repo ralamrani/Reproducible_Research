@@ -1,0 +1,91 @@
+---
+title: "Reproducible Research: Peer Assessment 1"
+output: 
+  html_document:
+    keep_md: true
+---
+
+
+## Loading and preprocessing the data
+```{r reading, cache=TRUE}
+activity <- read.csv("data/activity.csv")
+str(activity)
+summary(activity)
+```
+
+
+## What is mean total number of steps taken per day?
+First we aggregate the number of steps per day (you'll see a snapshot printed).
+```{r aggregate and print the number of steps per day}
+total_steps_perday <- aggregate(steps ~ date, data = activity, FUN = sum, na.rm = TRUE)
+head(total_steps_perday)
+```
+
+And here you can see the how the user's activity varies and the associated mean and median.
+
+```{r print a barplot, and calculate the mean and median}
+library(ggplot2)
+qplot(total_steps_perday$steps, xlab="Total steps per day", ylab="Frequency")
+mean(total_steps_perday$steps, na.rm=TRUE)
+median(total_steps_perday$steps, na.rm=TRUE)
+```
+
+## What is the average daily activity pattern?
+```{r}
+steps_by_interval <- aggregate(steps ~ interval, activity, mean)
+plot(steps_by_interval$interval,steps_by_interval$steps,type="l",xlab= "Interval", ylab="Average Number of Steps", main="Average Number of Steps by Interval over time")
+```
+
+Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+
+````{r max number of steps}
+max_interval <- steps_by_interval$interval[which.max(steps_by_interval$steps)]
+max_interval
+
+```
+
+## Imputing missing values
+The total number of missing values in the dataset (i.e. the total number of rows with NAs).
+```{r number of missing values}
+missing <- is.na(activity$steps)
+table(missing)
+```
+Replacing the missing values with the interval's mean.
+
+```{r replace missing with mean}
+corr_activity <- activity
+missing_boolean <- is.na(corr_activity$steps)
+avg_interval <- tapply(corr_activity$steps, corr_activity$interval, mean, na.rm=TRUE)
+corr_activity$steps[missing_boolean] <- avg_interval[as.character(corr_activity$interval[missing_boolean])]
+```
+Show corrected activity of the user per interval and the associated meand and median.
+
+```{r print the corrected results}
+corr_total_steps_perday <- aggregate(steps ~ date, data = corr_activity, FUN = sum, na.rm = TRUE)
+head(corr_total_steps_perday)
+qplot(corr_total_steps_perday$steps, xlab="Total steps per day with nas corrected", ylab="Frequency")
+mean(corr_total_steps_perday$steps, na.rm=TRUE)
+median(corr_total_steps_perday$steps, na.rm=TRUE)
+```
+
+## Are there differences in activity patterns between weekdays and weekends?
+```{r determine weekday or weekend}
+library(lubridate)
+library(dplyr)
+library(plyr)
+corr_activity <- corr_activity%>%mutate(typeofday= ifelse(weekdays(as.Date(corr_activity$date))=="zondag" | weekdays(as.Date(corr_activity$date))=="zaterdag", "Weekend", "Weekday"))
+```
+
+Calculate the mean for each interval.
+
+```{r plot by type of day}
+average_steps_bytypeofday <- aggregate(steps ~ interval + typeofday, data = corr_activity, FUN = mean, na.rm = TRUE)
+head(average_steps_bytypeofday)
+```
+
+````{r plot by typeofday}
+ggplot(corr_activity, aes(x =interval , y=steps, color=typeofday)) +
+       geom_line() +
+       labs(title = "Average steps by type of day", x = "Interval", y = "Average Steps") +
+       facet_wrap(~ typeofday, ncol = 1, nrow=2)
+```
